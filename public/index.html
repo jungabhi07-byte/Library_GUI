@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Library Management UI</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>University Library System</h1>
+
+    <div id="loginPanel" class="card">
+      <h2>Staff Login</h2>
+      <form id="loginForm">
+        <label>Username
+          <input id="username" type="text" required />
+        </label>
+        <label>Password
+          <input id="password" type="password" required />
+        </label>
+        <button type="submit">Login</button>
+      </form>
+      <div id="loginMsg" class="msg"></div>
+    </div>
+
+    <div id="appPanel" class="card hidden">
+      <div class="topbar">
+        <div id="welcome"></div>
+        <button id="logoutBtn">Logout</button>
+      </div>
+
+      <section>
+        <h3>Database Tables</h3>
+        <select id="tablesSelect"><option value="">-- select table --</option></select>
+        <button id="refreshTables">Refresh</button>
+      </section>
+
+      <section id="tableView" class="hidden">
+        <h3 id="tableTitle"></h3>
+        <div id="tableContainer"></div>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
