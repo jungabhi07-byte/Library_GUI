@@ -1,62 +1,148 @@
-/* simple styles */
-:root {
-  --bg: #f6f8fa;
-  --card: #fff;
-  --accent: #0b5fff;
+// Frontend logic: login, fetch tables, show rows
+const loginPanel = document.getElementById('loginPanel');
+const appPanel = document.getElementById('appPanel');
+const loginForm = document.getElementById('loginForm');
+const loginMsg = document.getElementById('loginMsg');
+const usernameInput = document.getElementById('username');
+const passwordInput = document.getElementById('password');
+const welcome = document.getElementById('welcome');
+const logoutBtn = document.getElementById('logoutBtn');
+const tablesSelect = document.getElementById('tablesSelect');
+const refreshBtn = document.getElementById('refreshTables');
+const tableView = document.getElementById('tableView');
+const tableTitle = document.getElementById('tableTitle');
+const tableContainer = document.getElementById('tableContainer');
+
+// read API base from runtime config set in config.js (served from the same site)
+const API_BASE = (window && window.__API_BASE__) ? window.__API_BASE__ : '';
+
+function setToken(token) {
+  localStorage.setItem('lib_token', token);
+}
+function getToken() {
+  return localStorage.getItem('lib_token');
+}
+function clearToken() {
+  localStorage.removeItem('lib_token');
 }
 
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  background: var(--bg);
-  color: #111;
+async function api(path, opts = {}) {
+  opts.headers = opts.headers || {};
+  const token = getToken();
+  if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API_BASE + path, opts);
+  if (res.status === 401) {
+    // unauthorized: drop token
+    clearToken();
+    renderUI();
+    throw new Error('Unauthorized');
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'API error');
+  return data;
 }
 
-.container {
-  max-width: 920px;
-  margin: 36px auto;
-  padding: 16px;
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  loginMsg.textContent = '';
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
+  try {
+    const data = await api('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+    setToken(data.token);
+    welcome.textContent = `Welcome, ${data.user.name || data.user.username}`;
+    renderUI();
+    await loadTables();
+  } catch (err) {
+    console.error(err);
+    loginMsg.textContent = err.message || 'Login failed';
+  }
+});
+
+logoutBtn.addEventListener('click', () => {
+  clearToken();
+  renderUI();
+});
+
+refreshBtn.addEventListener('click', loadTables);
+
+tablesSelect.addEventListener('change', () => {
+  const t = tablesSelect.value;
+  if (t) loadTableRows(t);
+  else {
+    tableView.classList.add('hidden');
+  }
+});
+
+async function loadTables() {
+  try {
+    const data = await api('/api/tables');
+    tablesSelect.innerHTML = '<option value="">-- select table --</option>';
+    data.tables.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      tablesSelect.appendChild(opt);
+    });
+  } catch (err) {
+    console.error(err);
+    alert('Could not load tables: ' + err.message);
+  }
 }
 
-.card {
-  background: var(--card);
-  padding: 16px;
-  border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(2,6,23,0.06);
-  margin-bottom: 14px;
+function renderTable(rows) {
+  if (!rows || rows.length === 0) {
+    tableContainer.innerHTML = '<div>No rows</div>';
+    return;
+  }
+  const cols = Object.keys(rows[0]);
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const hrow = document.createElement('tr');
+  cols.forEach(c => {
+    const th = document.createElement('th');
+    th.textContent = c;
+    hrow.appendChild(th);
+  });
+  thead.appendChild(hrow);
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    cols.forEach(c => {
+      const td = document.createElement('td');
+      td.textContent = r[c] === null ? '' : r[c];
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  tableContainer.innerHTML = '';
+  tableContainer.appendChild(table);
 }
 
-.hidden { display: none; }
-
-label { display: block; margin: 8px 0; }
-input { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
-
-button {
-  padding: 8px 12px;
-  background: var(--accent);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
+async function loadTableRows(table) {
+  try {
+    tableTitle.textContent = table;
+    const data = await api('/api/tables/' + encodeURIComponent(table));
+    renderTable(data.rows);
+    tableView.classList.remove('hidden');
+  } catch (err) {
+    console.error(err);
+    alert('Could not load table: ' + err.message);
+  }
 }
 
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+function renderUI() {
+  if (getToken()) {
+    loginPanel.classList.add('hidden');
+    appPanel.classList.remove('hidden');
+    // attempt to load tables
+    loadTables().catch(() => {});
+  } else {
+    loginPanel.classList.remove('hidden');
+    appPanel.classList.add('hidden');
+  }
 }
 
-.msg { margin-top: 8px; color: #a00; }
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 8px;
-}
-th, td {
-  text-align: left;
-  padding: 6px 8px;
-  border-bottom: 1px solid #eee;
-  font-size: 14px;
-}
+renderUI();
